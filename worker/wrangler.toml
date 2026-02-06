@@ -1,0 +1,53 @@
+name = "ohcs-vms-api"
+main = "src/index.ts"
+compatibility_date = "2025-12-01"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "ohcs-vms-db"
+database_id = "local"
+
+# R2 Bucket (visitor photos, reports)
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "ohcs-vms-storage"
+
+# KV Namespace (cache, sessions, rate limits)
+[[kv_namespaces]]
+binding = "KV"
+id = "local"
+
+# Workers AI
+[ai]
+binding = "AI"
+
+# Durable Objects (real-time dashboard)
+[durable_objects]
+bindings = [
+  { name = "LIVE_COUNTER", class_name = "LiveVisitorCounter" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["LiveVisitorCounter"]
+
+# Cron Triggers
+[triggers]
+crons = [
+  "0 22 * * *",
+  "0 0 * * *",
+  "0 6 * * *",
+  "0 15 * * *"
+]
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+OHCS_NAME = "Office of the Head of Civil Service"
+DEFAULT_TIMEZONE = "Africa/Accra"
+BADGE_LETTERS = "A,B,C,D,E"
+MAX_BADGE_PER_LETTER = 25
+WHATSAPP_VERIFY_TOKEN = "ohcs-vms-whatsapp-verify-2026"
+WHATSAPP_PHONE_ID = ""
+WHATSAPP_TOKEN = ""

@@ -1,0 +1,20 @@
+{
+  "name": "ohcs-vms-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute ohcs-vms-db --file=./src/db/schema.sql --local",
+    "db:seed": "wrangler d1 execute ohcs-vms-db --file=./src/db/seed.sql --local",
+    "db:migrate-002": "wrangler d1 execute ohcs-vms-db --file=./src/db/migration-002-whatsapp.sql --local"
+  },
+  "dependencies": {
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^3.100.0"
+  }
+}
