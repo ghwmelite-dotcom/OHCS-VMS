@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { Env } from './types';
 import { corsMiddleware } from './middleware/cors';
+import { authMiddleware, requireRole } from './middleware/auth';
+import authRoutes from './routes/auth';
 import officeRoutes from './routes/offices';
 import visitorRoutes from './routes/visitors';
 import visitRoutes from './routes/visits';
@@ -28,7 +30,23 @@ app.get('/', (c) => c.json({
   status: 'healthy',
 }));
 
-// Mount routes
+// Auth routes (login/setup are public, other auth routes handle their own auth)
+app.route('/api/auth', authRoutes);
+
+// WhatsApp webhook (public — Meta needs unauthenticated access)
+app.route('/webhook/whatsapp', whatsappRoutes);
+
+// Apply auth middleware to all /api/* routes EXCEPT public auth endpoints
+app.use('/api/*', async (c, next) => {
+  const path = new URL(c.req.url).pathname;
+  // Skip auth for public endpoints
+  if (path === '/api/auth/login' || path === '/api/auth/setup') {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
+
+// Mount protected routes
 app.route('/api/offices', officeRoutes);
 app.route('/api/visitors', visitorRoutes);
 app.route('/api/visits', visitRoutes);
@@ -37,7 +55,24 @@ app.route('/api/ai', aiRoutes);
 app.route('/api/pre-registrations', preRegistrationRoutes);
 app.route('/api/appointments', appointmentRoutes);
 app.route('/api', storageRoutes);
-app.route('/webhook/whatsapp', whatsappRoutes);
+
+// Role-based access on specific route groups
+// Analytics: admin + supervisor only
+app.use('/api/analytics/*', requireRole('admin', 'supervisor'));
+// Visitor writes: admin + receptionist only (reads are open to all authed)
+app.use('/api/visitors', async (c, next) => {
+  if (c.req.method === 'POST' || c.req.method === 'PUT') {
+    return requireRole('admin', 'receptionist')(c, next);
+  }
+  await next();
+});
+app.use('/api/visits', async (c, next) => {
+  if (c.req.method === 'POST') {
+    return requireRole('admin', 'receptionist')(c, next);
+  }
+  await next();
+});
+app.use('/api/visits/:id/checkout', requireRole('admin', 'receptionist'));
 
 // WebSocket for live counts
 app.get('/api/live', async (c) => {

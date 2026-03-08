@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { getDashboard, getWeeklyAnalytics, getOfficeTraffic, getAnomalies, getSentiment, getPredictions } from '../services/api';
 
 export function useDashboard() {
@@ -9,7 +10,7 @@ export function useDashboard() {
     setLoading(true);
     getDashboard()
       .then(setData)
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load dashboard'))
       .finally(() => setLoading(false));
   };
 
@@ -25,7 +26,7 @@ export function useWeeklyAnalytics() {
   useEffect(() => {
     getWeeklyAnalytics()
       .then(d => setData(d.analytics || []))
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load weekly analytics'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -39,7 +40,7 @@ export function useOfficeTraffic(days = 7) {
   useEffect(() => {
     getOfficeTraffic(days)
       .then(d => setData(d.offices || []))
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load office traffic'))
       .finally(() => setLoading(false));
   }, [days]);
 
@@ -53,7 +54,7 @@ export function useAnomalies(limit = 20) {
   useEffect(() => {
     getAnomalies(limit)
       .then(d => setData(d.anomalies || []))
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load anomalies'))
       .finally(() => setLoading(false));
   }, [limit]);
 
@@ -67,7 +68,7 @@ export function useSentiment() {
   useEffect(() => {
     getSentiment()
       .then(setData)
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load sentiment data'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -81,7 +82,7 @@ export function usePredictions() {
   useEffect(() => {
     getPredictions()
       .then(d => setData(d.prediction))
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load predictions'))
       .finally(() => setLoading(false));
   }, []);
 

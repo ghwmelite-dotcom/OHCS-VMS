@@ -112,4 +112,62 @@ analytics.get('/predictions', async (c) => {
   return c.json({ prediction: prediction || null });
 });
 
+// Hourly heatmap — hour-of-day x day-of-week visitor counts
+analytics.get('/hourly-heatmap', async (c) => {
+  const result = await c.env.DB.prepare(`
+    SELECT
+      CAST(strftime('%w', v.check_in) AS INTEGER) as day_of_week,
+      CAST(strftime('%H', v.check_in) AS INTEGER) as hour,
+      COUNT(*) as count
+    FROM visits v
+    WHERE v.check_in >= datetime('now', '-30 days')
+    GROUP BY day_of_week, hour
+    ORDER BY day_of_week, hour
+  `).all();
+
+  return c.json({ heatmap: result.results });
+});
+
+// Visitor flow data (source → office → outcome)
+analytics.get('/flow', async (c) => {
+  const result = await c.env.DB.prepare(`
+    SELECT
+      CASE
+        WHEN v.ai_routed = 1 THEN 'AI-Routed'
+        WHEN pr.id IS NOT NULL THEN 'Pre-Registered'
+        ELSE 'Walk-in'
+      END as source,
+      o.abbreviation as office,
+      o.office_type,
+      v.status as outcome,
+      COUNT(*) as count
+    FROM visits v
+    JOIN offices o ON v.office_id = o.id
+    LEFT JOIN pre_registrations pr ON v.visitor_id = pr.visitor_name
+    WHERE v.check_in >= datetime('now', '-7 days')
+    GROUP BY source, o.abbreviation, v.status
+    ORDER BY count DESC
+  `).all();
+
+  return c.json({ flow: result.results });
+});
+
+// Prediction accuracy (predicted vs actual over time)
+analytics.get('/prediction-accuracy', async (c) => {
+  const days = parseInt(c.req.query('days') || '14');
+
+  const result = await c.env.DB.prepare(`
+    SELECT
+      da.date,
+      da.total_visitors as actual,
+      da.predicted_visitors as predicted
+    FROM daily_analytics da
+    WHERE da.date >= date('now', '-' || ? || ' days')
+      AND da.predicted_visitors IS NOT NULL
+    ORDER BY da.date ASC
+  `).bind(days).all();
+
+  return c.json({ accuracy: result.results });
+});
+
 export default analytics;

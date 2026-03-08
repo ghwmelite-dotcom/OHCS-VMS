@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { useOffices } from '../../hooks/useOffices';
 import { createVisitor, checkInVisitor, aiRoute, updatePreRegistration } from '../../services/api';
 import AISuggestionCard from './AISuggestionCard';
+import useUXFeedback from '../../hooks/useUXFeedback';
 import { VISIT_PURPOSES, ID_TYPES } from '../../constants/offices';
 
 export default function NewVisitorModal({ open, onClose, onSuccess, prefill }) {
   const { grouped, offices } = useOffices();
-  const [step, setStep] = useState(1);
+  const { celebrate, notify } = useUXFeedback();
+  const [step, setStep] = useState(1); // 1=info, 2=checkin, 3=success
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState(null);
@@ -83,6 +87,7 @@ export default function NewVisitorModal({ open, onClose, onSuccess, prefill }) {
         setStep(2);
       } catch (err) {
         setError(err.message);
+        notify.error(err.message || 'Failed to create visitor');
       } finally {
         setLoading(false);
       }
@@ -114,10 +119,16 @@ export default function NewVisitorModal({ open, onClose, onSuccess, prefill }) {
           // non-critical
         }
       }
+      // Show success screen with celebration
+      celebrate('checkin', `${visitor.full_name} checked in!`, 'celebration');
+      setStep(3);
       onSuccess?.();
-      handleClose();
+      // Auto-close after 1.8s
+      setTimeout(() => handleClose(), 1800);
+      return;
     } catch (err) {
       setError(err.message);
+      notify.error(err.message || 'Check-in failed');
     } finally {
       setLoading(false);
     }
@@ -146,7 +157,7 @@ export default function NewVisitorModal({ open, onClose, onSuccess, prefill }) {
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="pointer-events-auto w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl animate-fade-in-up"
+          className="pointer-events-auto w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl animate-fade-in-up modal-responsive"
           style={{
             background: 'var(--bg-modal)',
             border: '1px solid var(--border-separator)',
@@ -189,10 +200,7 @@ export default function NewVisitorModal({ open, onClose, onSuccess, prefill }) {
             </div>
             <button
               onClick={handleClose}
-              className="p-2 rounded-xl text-text-muted hover:text-text-secondary transition-colors"
-              style={{ background: 'transparent' }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-inset)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              className="p-2 rounded-xl text-text-muted hover:text-text-secondary hover:bg-[var(--bg-card-inset)] transition-all"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -389,41 +397,73 @@ export default function NewVisitorModal({ open, onClose, onSuccess, prefill }) {
             )}
           </div>
 
+          {/* Success screen */}
+          {step === 3 && (
+            <div className="p-8 text-center">
+              <motion.div
+                className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(0, 107, 63, 0.15), rgba(52, 211, 153, 0.1))',
+                  border: '2px solid rgba(0, 107, 63, 0.3)',
+                }}
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+              >
+                <motion.svg
+                  className="w-10 h-10"
+                  style={{ color: '#34D399' }}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.4 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </motion.svg>
+              </motion.div>
+              <motion.p
+                className="text-lg font-semibold text-gradient-hero"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                {visitor.full_name}
+              </motion.p>
+              <motion.p
+                className="text-xs text-text-muted mt-1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                Checked in successfully
+              </motion.p>
+            </div>
+          )}
+
           {/* Footer */}
-          <div
-            className="flex items-center justify-end gap-3 p-5"
-            style={{ borderTop: '1px solid var(--border-secondary)' }}
-          >
-            <button
-              onClick={handleClose}
-              className="px-4 py-2.5 rounded-xl text-sm text-text-secondary"
-              style={{
-                background: 'var(--bg-card-inset)',
-                border: '1px solid var(--border-separator)',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-card-inset-hover)';
-                e.currentTarget.style.borderColor = 'var(--border-hover)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--bg-card-inset)';
-                e.currentTarget.style.borderColor = 'var(--border-separator)';
-              }}
+          {step < 3 && (
+            <div
+              className="flex items-center justify-end gap-3 p-5"
+              style={{ borderTop: '1px solid var(--border-secondary)' }}
             >
-              Cancel
-            </button>
-            {step === 1 && (
-              <button onClick={handleNext} disabled={loading} className="btn-primary">
-                {loading ? 'Creating...' : 'Next \u2192'}
+              <button
+                onClick={handleClose}
+                className="card-inset-interactive px-4 py-2.5 rounded-xl text-sm text-text-secondary"
+              >
+                Cancel
               </button>
-            )}
-            {step === 2 && (
-              <button onClick={handleCheckIn} disabled={loading} className="btn-primary">
-                {loading ? 'Checking In...' : '\u2713 Check In'}
-              </button>
-            )}
-          </div>
+              {step === 1 && (
+                <button onClick={handleNext} disabled={loading} className="btn-primary">
+                  {loading ? 'Creating...' : 'Next \u2192'}
+                </button>
+              )}
+              {step === 2 && (
+                <button onClick={handleCheckIn} disabled={loading} className="btn-primary">
+                  {loading ? 'Checking In...' : '\u2713 Check In'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

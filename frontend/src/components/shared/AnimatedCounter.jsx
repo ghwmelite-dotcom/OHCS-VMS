@@ -1,37 +1,29 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import { useSpring, useTransform, motion, useMotionValue } from 'framer-motion';
 
 export default function AnimatedCounter({ value, duration = 800, className = '' }) {
-  const [display, setDisplay] = useState(0);
-  const prevValue = useRef(0);
-  const frameRef = useRef(null);
+  const motionValue = useMotionValue(0);
+  const springValue = useSpring(motionValue, {
+    stiffness: 100,
+    damping: 20,
+    mass: 0.8,
+    duration: duration,
+  });
+  const display = useTransform(springValue, (v) => Math.round(v));
+  const ref = useRef(null);
 
   useEffect(() => {
-    const start = prevValue.current;
-    const end = typeof value === 'number' ? value : 0;
-    const startTime = performance.now();
+    motionValue.set(typeof value === 'number' ? value : 0);
+  }, [value, motionValue]);
 
-    function animate(currentTime) {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      // Ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(start + (end - start) * eased);
-
-      setDisplay(current);
-
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate);
-      } else {
-        prevValue.current = end;
+  useEffect(() => {
+    const unsubscribe = display.on('change', (v) => {
+      if (ref.current) {
+        ref.current.textContent = v;
       }
-    }
+    });
+    return unsubscribe;
+  }, [display]);
 
-    frameRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    };
-  }, [value, duration]);
-
-  return <span className={className}>{display}</span>;
+  return <motion.span ref={ref} className={className}>0</motion.span>;
 }

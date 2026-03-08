@@ -1,39 +1,43 @@
 import { Context, Next } from 'hono';
+import { Env } from '../types';
+import { verifyToken, JWTPayload } from '../utils/jwt';
 
-export interface AccessUser {
-  email: string;
-  name?: string;
-}
-
-export function getAccessUser(c: Context): AccessUser | null {
-  const jwt = c.req.header('Cf-Access-Jwt-Assertion');
-  if (!jwt) {
-    // In development, return a mock user
-    if (c.env.ENVIRONMENT === 'development') {
-      return { email: 'dev@ohcs.gov.gh', name: 'Dev User' };
-    }
-    return null;
-  }
-
-  try {
-    const payload = JSON.parse(atob(jwt.split('.')[1]));
-    return { email: payload.email, name: payload.name };
-  } catch {
-    return null;
+// Extend Hono context to carry auth user
+declare module 'hono' {
+  interface ContextVariableMap {
+    user: JWTPayload;
   }
 }
 
-export async function authMiddleware(c: Context, next: Next) {
-  // Skip auth in development
-  if (c.env.ENVIRONMENT === 'development') {
-    await next();
-    return;
+export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ error: 'Missing or invalid Authorization header' }, 401);
   }
 
-  const user = getAccessUser(c);
-  if (!user) {
-    return c.json({ error: 'Unauthorized' }, 401);
+  const token = authHeader.slice(7);
+  const payload = await verifyToken(token, c.env.JWT_SECRET);
+  if (!payload) {
+    return c.json({ error: 'Invalid or expired token' }, 401);
   }
 
+  // Check KV session exists (for revocation support)
+  const sessionKey = `session:${payload.sub}:${payload.iat}`;
+  const session = await c.env.KV.get(sessionKey);
+  if (!session) {
+    return c.json({ error: 'Session expired or revoked' }, 401);
+  }
+
+  c.set('user', payload);
   await next();
+}
+
+export function requireRole(...roles: string[]) {
+  return async (c: Context<{ Bindings: Env }>, next: Next) => {
+    const user = c.get('user');
+    if (!user || !roles.includes(user.role)) {
+      return c.json({ error: 'Insufficient permissions' }, 403);
+    }
+    await next();
+  };
 }

@@ -7,7 +7,8 @@
     "deploy": "wrangler deploy",
     "db:init": "wrangler d1 execute ohcs-vms-db --file=./src/db/schema.sql --local",
     "db:seed": "wrangler d1 execute ohcs-vms-db --file=./src/db/seed.sql --local",
-    "db:migrate-002": "wrangler d1 execute ohcs-vms-db --file=./src/db/migration-002-whatsapp.sql --local"
+    "db:migrate-002": "wrangler d1 execute ohcs-vms-db --file=./src/db/migration-002-whatsapp.sql --local",
+    "db:migrate-003": "wrangler d1 execute ohcs-vms-db --file=./src/db/migration-003-auth.sql --local"
   },
   "dependencies": {
     "hono": "^4.6.0"

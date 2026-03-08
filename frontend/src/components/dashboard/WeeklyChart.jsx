@@ -1,90 +1,131 @@
-import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart, ReferenceLine } from 'recharts';
+import { fadeInUp, spring } from '../../constants/motion';
+import Skeleton from '../shared/Skeleton';
 
-export default function WeeklyChart({ data }) {
-  const [animated, setAnimated] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setAnimated(true), 200);
-    return () => clearTimeout(timer);
-  }, []);
-
+export default function WeeklyChart({ data, prediction }) {
   if (!data || data.length === 0) {
-    return (
-      <div className="card">
-        <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Weekly Traffic</h3>
-        <div className="text-center py-8">
-          <p className="text-text-muted text-sm">Collecting data...</p>
-        </div>
-      </div>
-    );
+    return <Skeleton.Chart />;
   }
 
-  const maxVisitors = Math.max(...data.map(d => d.total_visitors || 0), 1);
   const today = new Date().toISOString().split('T')[0];
 
-  return (
-    <div className="card">
-      <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-6">Weekly Traffic</h3>
-      <div className="flex items-end gap-3 h-44 px-2">
-        {data.map((day, i) => {
-          const count = day.total_visitors || 0;
-          const height = (count / maxVisitors) * 100;
-          const isToday = day.date === today;
-          const dayLabel = new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+  const chartData = data.map(day => {
+    const dayLabel = new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+    return {
+      name: dayLabel,
+      visitors: day.total_visitors || 0,
+      isToday: day.date === today,
+      date: day.date,
+    };
+  });
 
-          return (
-            <div key={day.date} className="flex-1 flex flex-col items-center gap-2 group">
-              {/* Count */}
-              <span
-                className="text-xs font-mono tabular-nums transition-all duration-300"
-                style={{ color: isToday ? '#FCD116' : 'var(--text-muted)' }}
-              >
-                {count}
-              </span>
+  // Compute 3-day moving average
+  chartData.forEach((d, i) => {
+    const slice = chartData.slice(Math.max(0, i - 2), i + 1);
+    d.avg = Math.round(slice.reduce((s, x) => s + x.visitors, 0) / slice.length);
+  });
 
-              {/* Bar container */}
-              <div className="w-full relative h-[130px] flex items-end">
-                <div
-                  className="w-full rounded-t-xl relative overflow-hidden transition-all duration-700"
-                  style={{
-                    height: animated ? `${Math.max(height, 3)}%` : '0%',
-                    transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
-                    transitionDelay: `${i * 80}ms`,
-                    background: isToday
-                      ? 'linear-gradient(180deg, #FCD116 0%, #006B3F 100%)'
-                      : 'linear-gradient(180deg, rgba(252, 209, 22, 0.4) 0%, rgba(0, 107, 63, 0.3) 100%)',
-                    boxShadow: isToday ? '0 0 20px rgba(252, 209, 22, 0.15)' : 'none',
-                  }}
-                >
-                  {/* Shine effect */}
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background: 'linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 50%)',
-                    }}
-                  />
-                  {/* Hover highlight */}
-                  <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    style={{ background: 'rgba(255,255,255,0.05)' }}
-                  />
-                </div>
-              </div>
-
-              {/* Day label */}
-              <span
-                className="text-[11px] font-medium transition-colors duration-200"
-                style={{
-                  color: isToday ? '#FCD116' : 'var(--text-muted)',
-                  textShadow: isToday ? 'var(--glow-gold-text)' : 'none',
-                }}
-              >
-                {dayLabel}
-              </span>
-            </div>
-          );
-        })}
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.[0]) return null;
+    return (
+      <div
+        className="rounded-xl px-3 py-2"
+        style={{
+          background: 'var(--bg-modal)',
+          border: '1px solid var(--border-separator)',
+          boxShadow: 'var(--shadow-card)',
+          backdropFilter: 'blur(20px)',
+        }}
+      >
+        <p className="text-xs font-semibold text-text-primary">{label}</p>
+        <p className="text-sm font-mono font-bold" style={{ color: '#FCD116' }}>
+          {payload[0].value} visitors
+        </p>
+        {payload[1] && (
+          <p className="text-[10px] text-text-muted">
+            Avg: {payload[1].value}
+          </p>
+        )}
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <motion.div
+      className="card"
+      variants={fadeInUp}
+      initial="initial"
+      animate="animate"
+      transition={spring.gentle}
+    >
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">Weekly Traffic</h3>
+        {prediction?.predicted_count && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-text-muted">Predicted today:</span>
+            <span className="text-xs font-bold font-mono" style={{ color: '#818CF8' }}>
+              {prediction.predicted_count}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+          <XAxis
+            dataKey="name"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'DM Sans' }}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: 'var(--text-muted)', fontSize: 10, fontFamily: 'Space Mono' }}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(148, 163, 184, 0.05)' }} />
+
+          {prediction?.predicted_count && (
+            <ReferenceLine
+              y={prediction.predicted_count}
+              stroke="#818CF8"
+              strokeDasharray="4 4"
+              strokeWidth={1}
+              opacity={0.5}
+            />
+          )}
+
+          <defs>
+            <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FCD116" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#006B3F" stopOpacity={0.7} />
+            </linearGradient>
+            <linearGradient id="barGradientMuted" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FCD116" stopOpacity={0.4} />
+              <stop offset="100%" stopColor="#006B3F" stopOpacity={0.3} />
+            </linearGradient>
+          </defs>
+
+          <Bar
+            dataKey="visitors"
+            radius={[6, 6, 0, 0]}
+            maxBarSize={40}
+            fill="url(#barGradientMuted)"
+            animationDuration={800}
+            animationEasing="ease-out"
+          />
+          <Line
+            type="monotone"
+            dataKey="avg"
+            stroke="#F59E0B"
+            strokeWidth={2}
+            dot={false}
+            strokeDasharray="4 4"
+            animationDuration={1000}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </motion.div>
   );
 }

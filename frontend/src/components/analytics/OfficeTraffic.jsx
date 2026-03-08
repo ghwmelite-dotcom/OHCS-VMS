@@ -1,72 +1,144 @@
-import { useState, useEffect } from 'react';
-import OfficePill from '../shared/OfficePill';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import EmptyState from '../shared/EmptyState';
+import { fadeInUp, spring } from '../../constants/motion';
 
-export default function OfficeTraffic({ data }) {
-  const [animated, setAnimated] = useState(false);
-  useEffect(() => { setTimeout(() => setAnimated(true), 200); }, []);
+const PERIOD_OPTIONS = [
+  { label: '7D', value: 7 },
+  { label: '30D', value: 30 },
+  { label: '90D', value: 90 },
+];
+
+const TYPE_COLORS = {
+  directorate: '#34D399',
+  unit: '#60A5FA',
+  executive: '#FCD116',
+};
+
+export default function OfficeTraffic({ data, onPeriodChange }) {
+  const [period, setPeriod] = useState(7);
+  const [selectedOffice, setSelectedOffice] = useState(null);
+
+  const handlePeriodChange = (val) => {
+    setPeriod(val);
+    onPeriodChange?.(val);
+  };
 
   if (!data || data.length === 0) {
     return (
       <div className="card">
         <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Office Traffic</h3>
-        <p className="text-text-muted text-sm text-center py-6">No traffic data yet.</p>
+        <EmptyState type="data" title="No traffic data" description="Traffic data will appear after the first visitor checks in." />
       </div>
     );
   }
 
-  const maxCount = Math.max(...data.map(d => d.visitor_count || 0), 1);
-  const directorates = data.filter(d => d.office_type === 'directorate');
-  const units = data.filter(d => d.office_type === 'unit');
-  const executive = data.filter(d => d.office_type === 'executive');
+  const chartData = data.map(d => ({
+    name: d.abbreviation,
+    visitors: d.visitor_count || 0,
+    type: d.office_type,
+    fullName: d.full_name,
+    avgDuration: d.avg_duration_mins ? `${Math.round(d.avg_duration_mins)}min` : 'N/A',
+  })).sort((a, b) => b.visitors - a.visitors);
 
-  return (
-    <div className="card">
-      <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-5">Office Traffic</h3>
-
-      {executive.length > 0 && <Section label="Executive" items={executive} maxCount={maxCount} animated={animated} offset={0} />}
-      <Section label="Directorates" items={directorates} maxCount={maxCount} animated={animated} offset={executive.length} />
-      <Section label="Units" items={units} maxCount={maxCount} animated={animated} offset={executive.length + directorates.length} />
-    </div>
-  );
-}
-
-function Section({ label, items, maxCount, animated, offset }) {
-  if (items.length === 0) return null;
-
-  return (
-    <div className="mb-5 last:mb-0">
-      <div className="text-[10px] text-text-muted uppercase tracking-widest mb-3 font-medium">{label}</div>
-      <div className="space-y-2.5">
-        {items.map((item, i) => {
-          const pct = ((item.visitor_count || 0) / maxCount) * 100;
-          return (
-            <div key={item.abbreviation} className="flex items-center gap-3 group">
-              <div className="w-16 shrink-0">
-                <OfficePill abbreviation={item.abbreviation} type={item.office_type} />
-              </div>
-              <div className="flex-1 h-2.5 rounded-full overflow-hidden relative" style={{ background: 'var(--bar-track)' }}>
-                <div
-                  className="h-full rounded-full relative overflow-hidden"
-                  style={{
-                    width: animated ? `${Math.max(pct, 2)}%` : '0%',
-                    background: 'linear-gradient(90deg, #006B3F 0%, #34D399 50%, #FCD116 100%)',
-                    boxShadow: '0 0 12px rgba(252, 209, 22, 0.1)',
-                    transition: `width 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${(offset + i) * 100}ms`,
-                  }}
-                >
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%)' }} />
-                </div>
-              </div>
-              <span
-                className="text-sm font-bold font-mono w-8 text-right tabular-nums"
-                style={{ color: '#FCD116', textShadow: 'var(--glow-gold-text)' }}
-              >
-                {item.visitor_count || 0}
-              </span>
-            </div>
-          );
-        })}
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.[0]) return null;
+    const d = payload[0].payload;
+    return (
+      <div
+        className="rounded-xl px-3 py-2"
+        style={{
+          background: 'var(--bg-modal)',
+          border: '1px solid var(--border-separator)',
+          boxShadow: 'var(--shadow-card)',
+        }}
+      >
+        <p className="text-xs font-semibold text-text-primary">{d.fullName || d.name}</p>
+        <p className="text-sm font-mono font-bold" style={{ color: TYPE_COLORS[d.type] || '#FCD116' }}>
+          {d.visitors} visitors
+        </p>
+        <p className="text-[10px] text-text-muted">Avg duration: {d.avgDuration}</p>
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <motion.div
+      className="card"
+      variants={fadeInUp}
+      initial="initial"
+      animate="animate"
+      transition={spring.gentle}
+    >
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">Office Traffic</h3>
+        <div
+          className="flex rounded-lg overflow-hidden"
+          style={{ border: '1px solid var(--border-separator)' }}
+        >
+          {PERIOD_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => handlePeriodChange(opt.value)}
+              className="px-2.5 py-1 text-[10px] font-bold transition-colors"
+              style={{
+                background: period === opt.value ? 'rgba(252, 209, 22, 0.1)' : 'transparent',
+                color: period === opt.value ? '#FCD116' : 'var(--text-muted)',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={chartData.length * 36 + 20}>
+        <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+          <XAxis type="number" hide />
+          <YAxis
+            dataKey="name"
+            type="category"
+            axisLine={false}
+            tickLine={false}
+            width={50}
+            tick={{ fill: 'var(--text-muted)', fontSize: 10, fontFamily: 'Space Mono' }}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(148, 163, 184, 0.03)' }} />
+          <Bar
+            dataKey="visitors"
+            radius={[0, 6, 6, 0]}
+            maxBarSize={20}
+            animationDuration={800}
+            onClick={(d) => setSelectedOffice(d.name)}
+            cursor="pointer"
+          >
+            {chartData.map((entry) => (
+              <Cell
+                key={entry.name}
+                fill={TYPE_COLORS[entry.type] || '#FCD116'}
+                opacity={selectedOffice && selectedOffice !== entry.name ? 0.3 : 0.8}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      {selectedOffice && (
+        <motion.div
+          className="mt-3 flex items-center justify-between"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <span className="text-xs text-text-muted">Showing: <span className="font-bold text-text-primary">{selectedOffice}</span></span>
+          <button
+            onClick={() => setSelectedOffice(null)}
+            className="text-[10px] text-text-muted hover:text-text-secondary"
+          >
+            Clear filter
+          </button>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }

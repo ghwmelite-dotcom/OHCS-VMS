@@ -1,14 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import Header from '../components/layout/Header';
 import { useOffices } from '../hooks/useOffices';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import OfficePill from '../components/shared/OfficePill';
 import { OFFICE_TYPE_ICONS } from '../constants/offices';
+import UserManagement from '../components/settings/UserManagement';
+import ChangePasswordForm from '../components/settings/ChangePasswordForm';
+import usePersistedState from '../hooks/usePersistedState';
+import useSound from '../hooks/useSound';
 
 export default function SettingsPage() {
   const { grouped, loading } = useOffices();
   const { theme, toggleTheme } = useTheme();
-  const [aiSettings, setAiSettings] = useState({
+  const { isAdmin } = useAuth();
+  const { getEnabled: getSoundEnabled, setEnabled: setSoundEnabled } = useSound();
+  const [soundOn, setSoundOn] = useState(getSoundEnabled);
+  const [aiSettings, setAiSettings] = usePersistedState('vms-ai-settings', {
     smartRouting: true,
     anomalyDetection: true,
     sentimentAnalysis: true,
@@ -16,8 +25,26 @@ export default function SettingsPage() {
     chatAssistant: true,
   });
 
+  // WhatsApp dynamic status
+  const [waStatus, setWaStatus] = useState('checking');
+  useEffect(() => {
+    fetch('/api/health').then(r => r.ok ? setWaStatus('connected') : setWaStatus('error'))
+      .catch(() => setWaStatus('error'));
+  }, []);
+
   const toggleSetting = (key) => {
-    setAiSettings(prev => ({ ...prev, [key]: !prev[key] }));
+    setAiSettings(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      toast.success(`${key === 'smartRouting' ? 'Smart Routing' : key === 'anomalyDetection' ? 'Anomaly Detection' : key === 'sentimentAnalysis' ? 'Sentiment Analysis' : key === 'predictions' ? 'Predictions' : 'AI Chat'} ${next[key] ? 'enabled' : 'disabled'}`);
+      return next;
+    });
+  };
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+    toast.success(`Sounds ${next ? 'enabled' : 'disabled'}`);
   };
 
   const features = [
@@ -31,6 +58,12 @@ export default function SettingsPage() {
   return (
     <div>
       <Header title="Settings" />
+
+      {/* User Management (admin only) */}
+      {isAdmin && <UserManagement />}
+
+      {/* Change Password (all roles) */}
+      <ChangePasswordForm />
 
       {/* Appearance */}
       <div className="card mb-4">
@@ -83,6 +116,39 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Sound Toggle */}
+      <div
+        className="card-inset-interactive flex items-center justify-between mt-3 mb-5"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-base">{soundOn ? '\uD83D\uDD0A' : '\uD83D\uDD07'}</span>
+          <div>
+            <div className="text-sm font-medium">Sound Effects</div>
+            <div className="text-[11px] text-text-muted">{soundOn ? 'Chimes on check-in/out' : 'Muted'}</div>
+          </div>
+        </div>
+        <button
+          onClick={toggleSound}
+          className="relative w-11 h-6 rounded-full"
+          style={{
+            background: soundOn
+              ? 'linear-gradient(135deg, #006B3F, #34D399)'
+              : 'rgba(148, 163, 184, 0.12)',
+            boxShadow: soundOn ? '0 0 12px rgba(0, 107, 63, 0.2)' : 'none',
+            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          <div
+            className="absolute top-0.5 w-5 h-5 rounded-full bg-white"
+            style={{
+              transform: soundOn ? 'translateX(22px)' : 'translateX(2px)',
+              transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            }}
+          />
+        </button>
+      </div>
+
       {/* AI Feature Toggles */}
       <div className="card mb-4">
         <div className="flex items-center gap-2.5 mb-5">
@@ -101,20 +167,7 @@ export default function SettingsPage() {
           {features.map(({ key, label, desc, icon }) => (
             <div
               key={key}
-              className="flex items-center justify-between p-3.5 rounded-2xl group"
-              style={{
-                background: 'var(--bg-card-inset)',
-                border: '1px solid var(--border-subtle)',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-card-inset-hover)';
-                e.currentTarget.style.borderColor = 'var(--border-separator)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--bg-card-inset)';
-                e.currentTarget.style.borderColor = 'var(--border-subtle)';
-              }}
+              className="card-inset-interactive flex items-center justify-between group"
             >
               <div className="flex items-center gap-3">
                 <span className="text-base">{icon}</span>
@@ -183,12 +236,12 @@ export default function SettingsPage() {
               <div
                 className="w-2 h-2 rounded-full"
                 style={{
-                  backgroundColor: '#25D366',
-                  boxShadow: '0 0 8px rgba(37, 211, 102, 0.4)',
+                  backgroundColor: waStatus === 'connected' ? '#25D366' : waStatus === 'checking' ? '#FCD116' : '#CE1126',
+                  boxShadow: waStatus === 'connected' ? '0 0 8px rgba(37, 211, 102, 0.4)' : 'none',
                 }}
               />
-              <span className="text-[11px] font-medium" style={{ color: '#25D366' }}>
-                Configured
+              <span className="text-[11px] font-medium" style={{ color: waStatus === 'connected' ? '#25D366' : waStatus === 'checking' ? '#FCD116' : '#CE1126' }}>
+                {waStatus === 'connected' ? 'Connected' : waStatus === 'checking' ? 'Checking...' : 'Unreachable'}
               </span>
             </div>
           </div>
@@ -276,20 +329,7 @@ export default function SettingsPage() {
                   {items.map(office => (
                     <div
                       key={office.id}
-                      className="flex items-center justify-between p-3.5 rounded-2xl group"
-                      style={{
-                        background: 'var(--bg-card-inset)',
-                        border: '1px solid var(--border-subtle)',
-                        transition: 'all 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'var(--bg-card-inset-hover)';
-                        e.currentTarget.style.borderColor = 'var(--border-separator)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'var(--bg-card-inset)';
-                        e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                      }}
+                      className="card-inset-interactive flex items-center justify-between group"
                     >
                       <div className="flex items-center gap-3">
                         <OfficePill abbreviation={office.abbreviation} type={office.office_type} />

@@ -104,9 +104,20 @@ visits.post('/', async (c) => {
   return c.json({ visit, badge: badgeId }, 201);
 });
 
-// Check out
+// Check out (with optional survey)
 visits.put('/:id/checkout', async (c) => {
   const visitId = parseInt(c.req.param('id'));
+  let rating = null;
+  let feedback = null;
+
+  // Try to parse body for survey data (optional)
+  try {
+    const body = await c.req.json();
+    rating = body.rating || null;
+    feedback = body.feedback || null;
+  } catch {
+    // No body — that's fine
+  }
 
   const visit = await c.env.DB.prepare(
     'SELECT v.*, o.abbreviation as office_abbr FROM visits v JOIN offices o ON v.office_id = o.id WHERE v.id = ?'
@@ -118,6 +129,18 @@ visits.put('/:id/checkout', async (c) => {
   await c.env.DB.prepare(
     `UPDATE visits SET status = 'checked-out', check_out = CURRENT_TIMESTAMP WHERE id = ?`
   ).bind(visitId).run();
+
+  // Save feedback if provided
+  if (rating || feedback) {
+    try {
+      await c.env.DB.prepare(`
+        INSERT INTO feedback (visit_id, visitor_id, rating, comment, created_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).bind(visitId, visit.visitor_id, rating, feedback).run();
+    } catch {
+      // Non-critical
+    }
+  }
 
   // Release badge
   if (visit.badge_number) {

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { getAppointments, approveAppointment, declineAppointment } from '../../services/api';
 import OfficePill from '../shared/OfficePill';
+import Skeleton from '../shared/Skeleton';
 
 export default function AppointmentRequests() {
   const [appointments, setAppointments] = useState([]);
@@ -14,7 +16,7 @@ export default function AppointmentRequests() {
       const data = await getAppointments('pending');
       setAppointments(data.appointments || []);
     } catch {
-      // silent fail
+      toast.error('Failed to load appointments');
     } finally {
       setLoading(false);
     }
@@ -31,8 +33,9 @@ export default function AppointmentRequests() {
     try {
       await approveAppointment(id);
       setAppointments(prev => prev.filter(a => a.id !== id));
+      toast.success('Appointment approved');
     } catch (err) {
-      console.error('Approve failed:', err);
+      toast.error(err.message || 'Failed to approve appointment');
     } finally {
       setActionLoading(null);
     }
@@ -46,14 +49,32 @@ export default function AppointmentRequests() {
       setAppointments(prev => prev.filter(a => a.id !== id));
       setDeclineId(null);
       setDeclineReason('');
+      toast.success('Appointment declined');
     } catch (err) {
-      console.error('Decline failed:', err);
+      toast.error(err.message || 'Failed to decline appointment');
     } finally {
       setActionLoading(null);
     }
   };
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="card mb-4">
+        <div className="flex items-center gap-2.5 mb-5">
+          <Skeleton.Base style={{ width: '32px', height: '32px', borderRadius: '12px' }} />
+          <Skeleton.Line width="160px" height="12px" />
+        </div>
+        <div className="space-y-2.5">
+          {[1, 2].map(i => (
+            <div key={i} className="p-3.5 rounded-2xl" style={{ background: 'var(--bg-card-inset)', border: '1px solid var(--border-subtle)' }}>
+              <Skeleton.Line width="70%" height="14px" className="mb-2" />
+              <Skeleton.Line width="50%" height="10px" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (appointments.length === 0) return null;
 
   return (

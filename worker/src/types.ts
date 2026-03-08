@@ -12,6 +12,23 @@ export interface Env {
   WHATSAPP_VERIFY_TOKEN: string;
   WHATSAPP_PHONE_ID: string;
   WHATSAPP_TOKEN: string;
+  JWT_SECRET: string;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  password_hash: string;
+  salt: string;
+  full_name: string;
+  role: 'admin' | 'receptionist' | 'supervisor';
+  office_id: number | null;
+  is_active: boolean;
+  last_login: string | null;
+  password_changed_at: string;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Office {

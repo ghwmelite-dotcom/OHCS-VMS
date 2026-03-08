@@ -6,7 +6,7 @@ compatibility_date = "2025-12-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "ohcs-vms-db"
-database_id = "local"
+database_id = "342aa7b5-7bf5-4cdd-b2f9-75fb34dece14"
 
 # R2 Bucket (visitor photos, reports)
 [[r2_buckets]]
@@ -16,7 +16,7 @@ bucket_name = "ohcs-vms-storage"
 # KV Namespace (cache, sessions, rate limits)
 [[kv_namespaces]]
 binding = "KV"
-id = "local"
+id = "15983eef326649dcb28e478e5360ee74"
 
 # Workers AI
 [ai]
@@ -43,7 +43,7 @@ crons = [
 
 # Environment variables
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
 OHCS_NAME = "Office of the Head of Civil Service"
 DEFAULT_TIMEZONE = "Africa/Accra"
 BADGE_LETTERS = "A,B,C,D,E"
