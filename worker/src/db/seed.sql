@@ -1,24 +1,29 @@
 -- OHCS Office Structure Seed Data
+-- Building layout: Ground Floor, 1st Floor, 2nd Floor
+-- Directors' personal offices are on 2nd Floor; main directorate offices on 1st Floor
+-- Ground Floor: support units (Registry, RCU, Estate, Accounts, F&A, Kitchenette)
 
--- Executive Offices
+-- Executive Offices (2nd Floor)
 INSERT OR IGNORE INTO offices (abbreviation, full_name, office_type, floor, room, head_officer, head_officer_title) VALUES
-  ('OHCS', 'Office of the Head of Civil Service', 'executive', '3rd Floor', '301', 'Head of Civil Service', 'Head of Civil Service'),
-  ('OCD',  'Office of the Chief Director',        'executive', '3rd Floor', '305', 'Chief Director',        'Chief Director');
+  ('HOC', 'Head of Civil Service',    'executive', '2nd Floor', NULL, 'Head of Civil Service', 'Head of Civil Service'),
+  ('CD',  'Office of Chief Director', 'executive', '2nd Floor', NULL, 'Chief Director',        'Chief Director');
 
--- Directorates
+-- Directorates (main offices on 1st Floor, directors on 2nd Floor)
 INSERT OR IGNORE INTO offices (abbreviation, full_name, office_type, floor, room, head_officer, head_officer_title) VALUES
-  ('RTDD',  'Research, Training & Development Directorate',               'directorate', '2nd Floor', '201', 'Director RTDD',  'Director'),
-  ('RSIMD', 'Research, Statistics & Information Management Directorate',   'directorate', '1st Floor', '112', 'Director RSIMD', 'Director'),
-  ('CMD',   'Change Management Directorate',                               'directorate', '2nd Floor', '210', 'Director CMD',   'Director'),
-  ('F&A',   'Finance & Administration Directorate',                        'directorate', '1st Floor', '105', 'Director F&A',   'Director'),
-  ('PBMED', 'Policy, Budget, Monitoring & Evaluation Directorate',         'directorate', '2nd Floor', '215', 'Director PBMED', 'Director');
+  ('CMD',   'Career Management Directorate',                                     'directorate', '1st Floor', '33, 34',     'Director CMD',   'Director'),
+  ('F&A',   'Finance & Administration Directorate',                              'directorate', '1st Floor', '35',          'Director F&A',   'Director'),
+  ('PBMED', 'Planning, Budgeting, Monitoring & Evaluation Directorate',          'directorate', '1st Floor', '30, 31, 32', 'Director PBMED', 'Director'),
+  ('RSIMD', 'Research, Statistics & Information Management Directorate',          'directorate', '1st Floor', '19, 20, 21', 'Director RSIMD', 'Director'),
+  ('RTDD',  'Recruitment, Training & Development Directorate',                   'directorate', '1st Floor', '36',          'Director RTDD',  'Director');
 
 -- Units
 INSERT OR IGNORE INTO offices (abbreviation, full_name, office_type, floor, room, head_officer, head_officer_title) VALUES
-  ('IAU',    'Internal Audit Unit',           'unit', '1st Floor', '108', 'Head of IAU',    'Head'),
-  ('Estate', 'Estate Unit',                   'unit', 'Ground Floor', 'G03', 'Head of Estate', 'Head'),
-  ('CSC',    'Client Service Centre',         'unit', 'Ground Floor', 'G01', 'Head of CSC',    'Head'),
-  ('RCU',    'Records & Communications Unit', 'unit', 'Ground Floor', 'G05', 'Head of RCU',    'Head');
+  ('RCU',    'Reform Coordinating Unit',     'unit', 'Ground Floor', NULL,          'Head of RCU',         'Head'),
+  ('CSC',    'Civil Service Council',        'unit', '1st Floor',    '22, 23, 24',  'Head of CSC',         'Head'),
+  ('EPS',    'Estate, Procurement & Stores', 'unit', 'Annex',        NULL,          'Head of EPS',         'Head'),
+  ('CU',     'Counseling Unit',              'unit', 'Annex',        NULL,          'Head of Counseling',   'Head'),
+  ('AU',     'Audit Unit',                   'unit', 'Annex',        NULL,          'Head of Audit',        'Head'),
+  ('PR',     'Public Relations',             'unit', 'Ground Floor', NULL,          'Head of PR',           'Head');
 
 -- Badge Pool (A-01 through E-25 = 125 badges)
 INSERT OR IGNORE INTO badges (id, is_available) VALUES
